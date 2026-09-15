@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, desktopCapturer, session } = require('electron');
+const { app, BrowserWindow, ipcMain, desktopCapturer, session,screen } = require('electron');
 const path = require('node:path');
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -14,6 +14,38 @@ ipcMain.handle('get-sources', async () => {
   });
   return sources;
 });
+
+let cursorInterval = null;
+let mouseEvents = [];
+let recordingStartTime = 0;
+
+// Cursor recording start karna
+ipcMain.handle('start-mouse-tracking', () => {
+  mouseEvents = [];
+  recordingStartTime = Date.now();
+  
+  // Har 50ms par cursor ke exact (x, y) coordinates record karega
+  cursorInterval = setInterval(() => {
+    const point = screen.getCursorScreenPoint();
+    mouseEvents.push({
+      time: Date.now() - recordingStartTime,
+      x: point.x,
+      y: point.y
+    });
+  }, 50);
+
+  return true;
+});
+
+// Cursor recording stop karna aur data return karna
+ipcMain.handle('stop-mouse-tracking', () => {
+  if (cursorInterval) {
+    clearInterval(cursorInterval);
+    cursorInterval = null;
+  }
+  return mouseEvents;
+});
+
 
 const createWindow = () => {
   // Create the browser window.

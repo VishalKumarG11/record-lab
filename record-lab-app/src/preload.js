@@ -3,5 +3,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
-  getSources: () => ipcRenderer.invoke('get-sources')
+  getSources: () => ipcRenderer.invoke('get-sources'),
+  startMouseTracking: () => ipcRenderer.invoke('start-mouse-tracking'),
+  stopMouseTracking: () => ipcRenderer.invoke('stop-mouse-tracking')
 });
