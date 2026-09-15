@@ -304,3 +304,45 @@ exportBtn.addEventListener('click', async () => {
     previewVideo.onended = null;
   };
 });
+
+const canvasContainer = document.querySelector('.canvas-container');
+const colorDots = document.querySelectorAll('.color-dot');
+const customBgUpload = document.getElementById('customBgUpload');
+
+// Theme Dots Click Listener
+colorDots.forEach(dot => {
+  dot.addEventListener('click', () => {
+    colorDots.forEach(d => d.classList.remove('active'));
+    dot.classList.add('active');
+    
+    const selectedBg = dot.getAttribute('data-bg');
+    canvasContainer.style.background = selectedBg;
+  });
+});
+
+// Custom Image Wallpaper Upload
+customBgUpload.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      canvasContainer.style.backgroundImage = `url(${event.target.result})`;
+      canvasContainer.style.backgroundSize = 'cover';
+      canvasContainer.style.backgroundPosition = 'center';
+      colorDots.forEach(d => d.classList.remove('active'));
+    };
+    reader.readAsDataURL(file);
+  }
+});
+
+const designerColorPicker = document.getElementById('designerColorPicker');
+
+// Designer Color Picker Change Listener
+designerColorPicker.addEventListener('input', (e) => {
+  const chosenColor = e.target.value;
+  canvasContainer.style.backgroundImage = 'none';
+  canvasContainer.style.backgroundColor = chosenColor;
+  
+  // Remove active ring from preset gradient dots
+  colorDots.forEach(d => d.classList.remove('active'));
+});
