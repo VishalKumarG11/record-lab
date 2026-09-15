@@ -51,7 +51,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 34px;
+        padding: 15px;
       }
 
       /* Inner Window: Matches Screenshot 1 */
@@ -95,6 +95,21 @@
         height: 100%;
         display: block;
       }
+      #exportBtn { background-color: #10b981; color: white; }
+      #exportBtn:hover { background-color: #059669; }
+      #exportBtn:disabled { background-color: #334155; cursor: not-allowed; opacity: 0.6; }
+      select {
+        padding: 9px 14px;
+        font-size: 14px;
+        font-weight: 600;
+        background-color: #1e293b;
+        color: #f8fafc;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        cursor: pointer;
+        outline: none;
+      }
+      select:disabled { opacity: 0.5; cursor: not-allowed; }
     </style>
   </head>
   <body>
@@ -102,6 +117,18 @@
     <div class="controls">
       <button id="recordBtn">Start Recording</button>
       <button id="stopBtn" disabled>Stop & Preview</button>
+      
+      <!-- Quality Selector -->
+      <select id="qualitySelect" disabled>
+        <option value="240">240p (426x240)</option>
+        <option value="360">360p (640x360)</option>
+        <option value="720">720p HD (1280x720)</option>
+        <option value="1080" selected>1080p FHD (1920x1080)</option>
+        <option value="2160">2160p 4K (3840x2160)</option>
+      </select>
+
+      <button id="exportBtn" disabled>Export MP4</button>
+      <span id="exportStatus" style="font-size: 13px; color: #94a3b8; margin-left: 8px;"></span>
     </div>
 
     <div class="canvas-container">

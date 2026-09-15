@@ -191,3 +191,116 @@ function startZoomPlayback() {
 
   renderFrame();
 }
+const exportBtn = document.getElementById('exportBtn');
+const qualitySelect = document.getElementById('qualitySelect');
+const exportStatus = document.getElementById('exportStatus');
+
+// Resolution aur Bitrate Presets Map
+const RESOLUTION_PRESETS = {
+  '240':  { width: 426,  height: 240,  bitrate: 800000 },     // 800 Kbps
+  '360':  { width: 640,  height: 360,  bitrate: 1500000 },    // 1.5 Mbps
+  '720':  { width: 1280, height: 720,  bitrate: 6000000 },    // 6 Mbps
+  '1080': { width: 1920, height: 1080, bitrate: 14000000 },   // 14 Mbps
+  '2160': { width: 3840, height: 2160, bitrate: 45000000 }    // 45 Mbps (4K Ultra HD)
+};
+
+// Preview load hone par controls enable karein
+previewVideo.addEventListener('canplay', () => {
+  if (previewVideo.duration && previewVideo.duration > 0) {
+    exportBtn.disabled = false;
+    qualitySelect.disabled = false;
+  }
+});
+
+exportBtn.addEventListener('click', async () => {
+  if (!previewVideo.duration) return;
+
+  const selectedPreset = RESOLUTION_PRESETS[qualitySelect.value] || RESOLUTION_PRESETS['1080'];
+
+  exportBtn.disabled = true;
+  qualitySelect.disabled = true;
+  recordBtn.disabled = true;
+  stopBtn.disabled = true;
+  exportStatus.innerText = `Exporting ${qualitySelect.value}p MP4...`;
+
+  if (animFrameId) cancelAnimationFrame(animFrameId);
+
+  // Set canvas dimensions to the target export resolution
+  const originalW = canvas.width;
+  const originalH = canvas.height;
+  canvas.width = selectedPreset.width;
+  canvas.height = selectedPreset.height;
+
+  previewVideo.currentTime = 0;
+  previewVideo.pause();
+
+  const canvasStream = canvas.captureStream(60);
+  const exportChunks = [];
+
+  // MP4 codec prioritization
+  let mimeType = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"';
+  let fileExt = 'mp4';
+
+  if (!MediaRecorder.isTypeSupported(mimeType)) {
+    mimeType = 'video/mp4';
+  }
+  if (!MediaRecorder.isTypeSupported(mimeType)) {
+    mimeType = 'video/webm; codecs=h264';
+  }
+  if (!MediaRecorder.isTypeSupported(mimeType)) {
+    mimeType = 'video/webm; codecs=vp9';
+    fileExt = 'webm';
+  }
+
+  const exportRecorder = new MediaRecorder(canvasStream, {
+    mimeType: mimeType,
+    videoBitsPerSecond: selectedPreset.bitrate
+  });
+
+  exportRecorder.ondataavailable = (e) => {
+    if (e.data && e.data.size > 0) {
+      exportChunks.push(e.data);
+    }
+  };
+
+  exportRecorder.onstop = () => {
+    const finalBlob = new Blob(exportChunks, { type: mimeType });
+    const downloadUrl = URL.createObjectURL(finalBlob);
+
+    // Trigger MP4 Download
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = downloadUrl;
+    a.download = `recordly-${qualitySelect.value}p-${Date.now()}.${fileExt}`;
+    document.body.appendChild(a);
+    a.click();
+
+    setTimeout(() => {
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(downloadUrl);
+    }, 100);
+
+    exportStatus.innerText = `Exported ${qualitySelect.value}p Successfully!`;
+    
+    // Restore original canvas preview size
+    canvas.width = originalW;
+    canvas.height = originalH;
+
+    exportBtn.disabled = false;
+    qualitySelect.disabled = false;
+    recordBtn.disabled = false;
+    setTimeout(() => { exportStatus.innerText = ''; }, 3500);
+
+    previewVideo.play();
+    startZoomPlayback();
+  };
+
+  exportRecorder.start();
+  await previewVideo.play();
+  startZoomPlayback();
+
+  previewVideo.onended = () => {
+    exportRecorder.stop();
+    previewVideo.onended = null;
+  };
+});
