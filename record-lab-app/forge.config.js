@@ -1,5 +1,23 @@
+const fs = require('fs');
+const path = require('path');
 const { FusesPlugin } = require('@electron-forge/plugin-fuses');
 const { FuseV1Options, FuseVersion } = require('@electron/fuses');
+
+const powershellDirectory = path.join(
+  process.env.SystemRoot || 'C:\\Windows',
+  'System32',
+  'WindowsPowerShell',
+  'v1.0',
+);
+const powershellExecutable = path.join(powershellDirectory, 'powershell.exe');
+
+if (process.platform === 'win32' && fs.existsSync(powershellExecutable)) {
+  const pathEntries = (process.env.PATH || '').split(path.delimiter);
+
+  if (!pathEntries.includes(powershellDirectory)) {
+    process.env.PATH = [powershellDirectory, ...pathEntries].join(path.delimiter);
+  }
+}
 
 module.exports = {
   packagerConfig: {
@@ -9,11 +27,13 @@ module.exports = {
   makers: [
     {
       name: '@electron-forge/maker-squirrel',
-      config: {},
+      config: {
+        name: 'record-lab-app',
+      },
     },
     {
       name: '@electron-forge/maker-zip',
-      platforms: ['darwin'],
+      platforms: ['win32'],
     },
     {
       name: '@electron-forge/maker-deb',
