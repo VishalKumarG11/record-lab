@@ -49,14 +49,19 @@ recordBtn.addEventListener('click', async () => {
       }
     };
 
-    mediaRecorder.onstop = async () => {
+  mediaRecorder.onstop = async () => {
       const blob = new Blob(recordedChunks, { type: 'video/webm' });
       previewVideo.src = URL.createObjectURL(blob);
       previewVideo.load();
 
       previewVideo.onloadedmetadata = () => {
-        canvas.width = previewVideo.videoWidth || 1280;
-        canvas.height = previewVideo.videoHeight || 720;
+        // Native screen recording resolution par canvas ko lock karein
+        canvas.width = previewVideo.videoWidth || 1920;
+        canvas.height = previewVideo.videoHeight || 1080;
+        currentFocusX = canvas.width / 2;
+        currentFocusY = canvas.height / 2;
+        currentScale = 1.0;
+
         previewVideo.play();
         startZoomPlayback();
       };
@@ -225,11 +230,16 @@ exportBtn.addEventListener('click', async () => {
 
   if (animFrameId) cancelAnimationFrame(animFrameId);
 
-  // Set canvas dimensions to the target export resolution
+
+  // Resolution Preset selection with Aspect Ratio calculation
+  const config = ASPECT_RATIOS[currentAspectRatio];
+  const targetScaleFactor = parseInt(qualitySelect.value) / 1080;
+   
+ 
   const originalW = canvas.width;
   const originalH = canvas.height;
-  canvas.width = selectedPreset.width;
-  canvas.height = selectedPreset.height;
+  canvas.width = Math.round(config.baseW * targetScaleFactor);
+  canvas.height = Math.round(config.baseH * targetScaleFactor);
 
   previewVideo.currentTime = 0;
   previewVideo.pause();
@@ -346,3 +356,60 @@ designerColorPicker.addEventListener('input', (e) => {
   // Remove active ring from preset gradient dots
   colorDots.forEach(d => d.classList.remove('active'));
 });
+
+
+
+
+// Ratio Presets (Preview Dimensions & Export Multipliers)
+const CONTAINER_DIMENSIONS = {
+  '16:9': { w: 960, h: 540 },
+  '9:16': { w: 340, h: 600 },
+  '1:1':  { w: 540, h: 540 },
+  '4:3':  { w: 720, h: 540 }
+};
+const aspectRatioSelect = document.getElementById('aspectRatioSelect');
+let currentAspectRatio = '16:9';
+
+aspectRatioSelect.addEventListener('change', (e) => {
+  currentAspectRatio = e.target.value;
+  const dims = CONTAINER_DIMENSIONS[currentAspectRatio];
+
+  // Sirf outer container resize hoga (aspect ratio mockup effect ke liye)
+  canvasContainer.style.width = `${dims.w}px`;
+  canvasContainer.style.height = `${dims.h}px`;
+
+  // Agar video loaded hai, toh current frame ko turant draw karein taaki black screen na aaye
+  if (previewVideo.readyState >= 2) {
+    drawSingleFrame();
+  }
+});
+
+// Single frame draw helper (Pause hone par canvas refresh karne ke liye)
+function drawSingleFrame() {
+  if (!previewVideo || !canvas) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.save();
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.scale(currentScale, currentScale);
+  ctx.translate(-currentFocusX, -currentFocusY);
+  ctx.drawImage(previewVideo, 0, 0, canvas.width, canvas.height);
+  ctx.restore();
+}
+
+if (aspectRatioSelect) {
+  aspectRatioSelect.addEventListener('change', (e) => {
+    currentAspectRatio = e.target.value;
+    const dims = CONTAINER_DIMENSIONS[currentAspectRatio] || CONTAINER_DIMENSIONS['16:9'];
+
+    // Sirf outer container resize hoga
+    if (canvasContainer) {
+      canvasContainer.style.width = `${dims.w}px`;
+      canvasContainer.style.height = `${dims.h}px`;
+    }
+
+    // Video loaded ho toh frame redraw karein taaki black screen na ho
+    if (previewVideo && previewVideo.readyState >= 2) {
+      drawSingleFrame();
+    }
+  });
+}

@@ -57,7 +57,7 @@
       /* Inner Window: Matches Screenshot 1 */
       .mockup-window {
         width: 100%;
-        height: 100%;
+        height: auto;
         background-color: #0f172a;
         border-radius: 12px;
         overflow: hidden;
@@ -171,6 +171,70 @@
         top: 0;
         left: 0;
       }
+      /* Outer Frame: Selected Aspect Ratio me change hoga */
+      .canvas-container {
+        position: relative;
+        width: 960px;
+        height: 540px; /* Default 16:9 */
+        border-radius: 20px;
+        background: linear-gradient(135deg, #38bdf8 0%, #6366f1 50%, #d946ef 100%);
+        box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+       
+        box-sizing: border-box;
+        transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow: hidden;
+      }
+
+      /* Inner Window: Hamesha original 16:9 ratio lock rakhega (No Stretch) */
+      .mockup-window {
+        width: 100%;
+        max-width: 100%;
+        max-height: 100%;
+        aspect-ratio: 16 / 9; /* Lock original desktop ratio */
+        background-color: #0f172a;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 20px 35px -8px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.12);
+        display: flex;
+        flex-direction: column;
+        flex-shrink: 0;
+      }
+
+      .window-header {
+        height: 26px;
+        background-color: #1e293b;
+        display: flex;
+        align-items: center;
+        padding: 0 12px;
+        gap: 6px;
+        flex-shrink: 0;
+      }
+
+      .dot { width: 9px; height: 9px; border-radius: 50%; }
+      .dot-red { background-color: #ef4444; }
+      .dot-yellow { background-color: #f59e0b; }
+      .dot-green { background-color: #10b981; }
+
+      .screen-viewport {
+        position: relative;
+        width: 100%;
+        height: calc(100% - 26px);
+        background: #000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+
+      #zoomCanvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+        object-fit: contain; 
+      }
     </style>
   </head>
   <body>
@@ -187,7 +251,13 @@
         <option value="1080" selected>1080p FHD</option>
         <option value="2160">2160p 4K</option>
       </select>
-
+         <!-- aspect ratio -->
+      <select id="aspectRatioSelect">
+        <option value="16:9" selected>16:9 (Horizontal)</option>
+        <option value="9:16">9:16 (Vertical)</option>
+        <option value="1:1">1:1 (Square)</option>
+        <option value="4:3">4:3 (Classic)</option>
+      </select>
       <!-- Background Swatches + Custom Color Picker -->
       <div class="theme-picker">
         <span style="font-size: 13px; color: #94a3b8; font-weight: 600;">Theme:</span>
