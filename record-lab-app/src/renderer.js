@@ -40,6 +40,7 @@ const canvasContainer = document.querySelector('.canvas-container');
 const colorDots = document.querySelectorAll('.color-dot');
 const designerColorPicker = document.getElementById('designerColorPicker');
 const customBgUpload = document.getElementById('customBgUpload');
+const playPauseBtn = document.getElementById('playPauseBtn');
 
 // 1. RECORDING START
 recordBtn.addEventListener('click', async () => {
@@ -92,6 +93,11 @@ recordBtn.addEventListener('click', async () => {
 
         previewVideo.play();
         startZoomPlayback();
+
+        if (playPauseBtn) {
+          playPauseBtn.disabled = false;
+          playPauseBtn.innerText = 'Pause';
+        }      
 
         if (exportBtn) exportBtn.disabled = false;
         if (qualitySelect) qualitySelect.disabled = false;
@@ -369,3 +375,46 @@ if (exportBtn) {
     }
   });
 }
+// Play / Pause Toggle Logic
+function togglePlayPause() {
+  if (!previewVideo.src || previewVideo.readyState < 2) return;
+
+  if (previewVideo.paused) {
+    previewVideo.play();
+    startZoomPlayback();
+    if (playPauseBtn) playPauseBtn.innerText = 'Pause';
+  } else {
+    previewVideo.pause();
+    if (animFrameId) cancelAnimationFrame(animFrameId);
+    drawSingleFrame();
+    if (playPauseBtn) playPauseBtn.innerText = 'Play';
+  }
+}
+
+// Button Click
+if (playPauseBtn) {
+  playPauseBtn.addEventListener('click', togglePlayPause);
+}
+
+// Canvas Click (Screen par kahi bhi click karke play/pause)
+if (canvas) {
+  canvas.addEventListener('click', togglePlayPause);
+}
+
+// Video khatam hone par wapas button 'Play' ho jaye
+previewVideo.addEventListener('ended', () => {
+  if (playPauseBtn) playPauseBtn.innerText = 'Play';
+  if (animFrameId) cancelAnimationFrame(animFrameId);
+  drawSingleFrame();
+});
+
+// Spacebar shortcut se play/pause
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' && !previewVideo.paused && !recordBtn.disabled) {
+    e.preventDefault();
+    togglePlayPause();
+  } else if (e.code === 'Space' && previewVideo.paused && previewVideo.duration) {
+    e.preventDefault();
+    togglePlayPause();
+  }
+});
