@@ -64,31 +64,7 @@
         box-shadow: 0 20px 30px -8px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.12);
         display: flex;
         flex-direction: column;
-      }
-
-      .window-header {
-        height: 28px;
-        background-color: #1e293b;
-        display: flex;
-        align-items: center;
-        padding: 0 12px;
-        gap: 6px;
-      }
-
-      .dot { width: 9px; height: 9px; border-radius: 50%; }
-      .dot-red { background-color: #ef4444; }
-      .dot-yellow { background-color: #f59e0b; }
-      .dot-green { background-color: #10b981; }
-
-      .screen-viewport {
-        position: relative;
-        width: 100%;
-        height: calc(100% - 28px);
-        background: #000;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
+      }       
 
       #zoomCanvas {
         width: 100%;
@@ -201,34 +177,7 @@
         display: flex;
         flex-direction: column;
         flex-shrink: 0;
-      }
-
-      .window-header {
-        height: 26px;
-        background-color: #1e293b;
-        display: flex;
-        align-items: center;
-        padding: 0 12px;
-        gap: 6px;
-        flex-shrink: 0;
-      }
-
-      .dot { width: 9px; height: 9px; border-radius: 50%; }
-      .dot-red { background-color: #ef4444; }
-      .dot-yellow { background-color: #f59e0b; }
-      .dot-green { background-color: #10b981; }
-
-      .screen-viewport {
-        position: relative;
-        width: 100%;
-        height: calc(100% - 26px);
-        background: #000;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        overflow: hidden;
-      }
-
+      }    
       #zoomCanvas {
         width: 100%;
         height: 100%;
@@ -281,12 +230,7 @@
     </div>
 
     <div class="canvas-container">
-      <div class="mockup-window">
-        <div class="window-header">
-          <div class="dot dot-red"></div>
-          <div class="dot dot-yellow"></div>
-          <div class="dot dot-green"></div>
-        </div>
+      <div class="mockup-window">       
         <div class="screen-viewport">
           <video id="preview" style="display: none;" playsinline></video>
           <canvas id="zoomCanvas"></canvas>
