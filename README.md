@@ -18,8 +18,11 @@ A high-performance desktop screen recording app built with Electron, featuring a
 
 * **Runtime:** Electron (Node.js)
 * **Build System:** Electron Forge + Webpack
-* **Rendering Pipeline:** HTML5 Canvas API & MediaStreams API
+* **Rendering Pipeline:** HTML5 Canvas API & MediaStreams API\
 
+## Important Commands
+* **Run:** npm start
+* **Build .exe:** npm run make
 ---
 
 ## Getting Started
