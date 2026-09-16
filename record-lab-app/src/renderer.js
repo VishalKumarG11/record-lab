@@ -1,3 +1,4 @@
+import './index.css';
 // Global Configuration Presets
 const RATIO_MAP = {
   '16:9': '16 / 9',
