@@ -1,9 +1,9 @@
 // Global Configuration Presets
-const CONTAINER_DIMENSIONS = {
-  '16:9': { w: 960, h: 540 },
-  '9:16': { w: 340, h: 600 },
-  '1:1':  { w: 540, h: 540 },
-  '4:3':  { w: 720, h: 540 }
+const RATIO_MAP = {
+  '16:9': '16 / 9',
+  '9:16': '9 / 16',
+  '1:1':  '1 / 1',
+  '4:3':  '4 / 3'
 };
 
 const RESOLUTION_PRESETS = {
@@ -36,17 +36,47 @@ const exportStatus = document.getElementById('exportStatus');
 const previewVideo = document.getElementById('preview');
 const canvas = document.getElementById('zoomCanvas');
 const ctx = canvas.getContext('2d');
-const canvasContainer = document.querySelector('.canvas-container');
+const canvasContainer = document.getElementById('canvasContainer');
 const colorDots = document.querySelectorAll('.color-dot');
 const designerColorPicker = document.getElementById('designerColorPicker');
 const customBgUpload = document.getElementById('customBgUpload');
 const playPauseBtn = document.getElementById('playPauseBtn');
+const currentTimecode = document.getElementById('currentTimecode');
+const totalTimecode = document.getElementById('totalTimecode');
 
-// 1. RECORDING START
+// Inspector Elements
+const dockThemeBtn = document.getElementById('dockThemeBtn');
+const inspectorCard = document.getElementById('inspectorCard');
+const closeInspectorBtn = document.getElementById('closeInspectorBtn');
+
+// Helper: Format Seconds to MM:SS
+function formatTime(seconds) {
+  if (isNaN(seconds)) return '0:00';
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+}
+
+// 1. INSPECTOR DRAWER TOGGLE LOGIC
+if (dockThemeBtn && inspectorCard) {
+  dockThemeBtn.addEventListener('click', () => {
+    inspectorCard.classList.toggle('hidden');
+    dockThemeBtn.classList.toggle('active');
+  });
+}
+
+if (closeInspectorBtn && inspectorCard) {
+  closeInspectorBtn.addEventListener('click', () => {
+    inspectorCard.classList.add('hidden');
+    if (dockThemeBtn) dockThemeBtn.classList.remove('active');
+  });
+}
+
+// 2. RECORDING START
 recordBtn.addEventListener('click', async () => {
   try {
     recordBtn.disabled = true;
-    recordBtn.innerText = 'Recording...';
+    recordBtn.innerText = '● Recording...';
     if (exportBtn) exportBtn.disabled = true;
 
     const sources = await window.electronAPI.getSources();
@@ -91,13 +121,17 @@ recordBtn.addEventListener('click', async () => {
         currentFocusY = canvas.height / 2;
         currentScale = 1.0;
 
+        if (totalTimecode) {
+          totalTimecode.innerText = formatTime(previewVideo.duration);
+        }
+
         previewVideo.play();
         startZoomPlayback();
 
         if (playPauseBtn) {
           playPauseBtn.disabled = false;
-          playPauseBtn.innerText = 'Pause';
-        }      
+          playPauseBtn.innerText = '⏸';
+        }
 
         if (exportBtn) exportBtn.disabled = false;
         if (qualitySelect) qualitySelect.disabled = false;
@@ -115,12 +149,12 @@ recordBtn.addEventListener('click', async () => {
   } catch (err) {
     console.error("Recording error:", err);
     recordBtn.disabled = false;
-    recordBtn.innerText = 'Start Recording';
+    recordBtn.innerText = '● Start Recording';
     stopBtn.disabled = true;
   }
 });
 
-// 2. RECORDING STOP
+// 3. RECORDING STOP
 stopBtn.addEventListener('click', () => {
   stopRecording();
 });
@@ -134,11 +168,11 @@ async function stopRecording() {
     recordedMouseData = await window.electronAPI.stopMouseTracking();
   }
   recordBtn.disabled = false;
-  recordBtn.innerText = 'Start Recording';
+  recordBtn.innerText = '● Start Recording';
   stopBtn.disabled = true;
 }
 
-// 3. STABILIZED AUTO-ZOOM PLAYBACK ENGINE
+// 4. STABILIZED AUTO-ZOOM PLAYBACK ENGINE
 function startZoomPlayback() {
   if (animFrameId) cancelAnimationFrame(animFrameId);
 
@@ -151,6 +185,11 @@ function startZoomPlayback() {
   function renderFrame() {
     if (!previewVideo.paused && !previewVideo.ended) {
       const currentTimeMs = previewVideo.currentTime * 1000;
+
+      // Update Live Timecode Display
+      if (currentTimecode) {
+        currentTimecode.innerText = formatTime(previewVideo.currentTime);
+      }
 
       if (recordedMouseData.length > 0) {
         const recentPoints = recordedMouseData.filter(
@@ -219,7 +258,7 @@ function startZoomPlayback() {
   renderFrame();
 }
 
-// Single frame draw helper (Pause ke waqt black screen rokkne ke liye)
+// Single frame draw helper
 function drawSingleFrame() {
   if (!previewVideo || !canvas) return;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -229,17 +268,20 @@ function drawSingleFrame() {
   ctx.translate(-currentFocusX, -currentFocusY);
   ctx.drawImage(previewVideo, 0, 0, canvas.width, canvas.height);
   ctx.restore();
+
+  if (currentTimecode && previewVideo) {
+    currentTimecode.innerText = formatTime(previewVideo.currentTime);
+  }
 }
 
-// 4. ASPECT RATIO SWITCHER
+// 5. FLUID ASPECT RATIO SWITCHER
 if (aspectRatioSelect) {
   aspectRatioSelect.addEventListener('change', (e) => {
     currentAspectRatio = e.target.value;
-    const dims = CONTAINER_DIMENSIONS[currentAspectRatio] || CONTAINER_DIMENSIONS['16:9'];
 
+    // Fluid CSS aspect-ratio change (Responsive & No Stretches)
     if (canvasContainer) {
-      canvasContainer.style.width = `${dims.w}px`;
-      canvasContainer.style.height = `${dims.h}px`;
+      canvasContainer.style.aspectRatio = RATIO_MAP[currentAspectRatio] || '16 / 9';
     }
 
     if (previewVideo && previewVideo.readyState >= 2) {
@@ -248,20 +290,24 @@ if (aspectRatioSelect) {
   });
 }
 
-// 5. THEME & BACKGROUND CONTROLS
+// 6. THEME & BACKGROUND CONTROLS
 colorDots.forEach(dot => {
   dot.addEventListener('click', () => {
     colorDots.forEach(d => d.classList.remove('active'));
     dot.classList.add('active');
-    canvasContainer.style.backgroundImage = 'none';
-    canvasContainer.style.background = dot.getAttribute('data-bg');
+    if (canvasContainer) {
+      canvasContainer.style.backgroundImage = 'none';
+      canvasContainer.style.background = dot.getAttribute('data-bg');
+    }
   });
 });
 
 if (designerColorPicker) {
   designerColorPicker.addEventListener('input', (e) => {
-    canvasContainer.style.backgroundImage = 'none';
-    canvasContainer.style.backgroundColor = e.target.value;
+    if (canvasContainer) {
+      canvasContainer.style.backgroundImage = 'none';
+      canvasContainer.style.backgroundColor = e.target.value;
+    }
     colorDots.forEach(d => d.classList.remove('active'));
   });
 }
@@ -269,7 +315,7 @@ if (designerColorPicker) {
 if (customBgUpload) {
   customBgUpload.addEventListener('change', (e) => {
     const file = e.target.files[0];
-    if (file) {
+    if (file && canvasContainer) {
       const reader = new FileReader();
       reader.onload = (event) => {
         canvasContainer.style.backgroundImage = `url(${event.target.result})`;
@@ -282,7 +328,47 @@ if (customBgUpload) {
   });
 }
 
-// 6. SAFE EXPORT ENGINE (NO UNDEFINED ERRORS)
+// 7. PLAY / PAUSE CONTROLS
+function togglePlayPause() {
+  if (!previewVideo.src || previewVideo.readyState < 2) return;
+
+  if (previewVideo.paused) {
+    previewVideo.play();
+    startZoomPlayback();
+    if (playPauseBtn) playPauseBtn.innerText = '⏸';
+  } else {
+    previewVideo.pause();
+    if (animFrameId) cancelAnimationFrame(animFrameId);
+    drawSingleFrame();
+    if (playPauseBtn) playPauseBtn.innerText = '▶';
+  }
+}
+
+if (playPauseBtn) {
+  playPauseBtn.addEventListener('click', togglePlayPause);
+}
+
+if (canvas) {
+  canvas.addEventListener('click', togglePlayPause);
+}
+
+previewVideo.addEventListener('ended', () => {
+  if (playPauseBtn) playPauseBtn.innerText = '▶';
+  if (animFrameId) cancelAnimationFrame(animFrameId);
+  drawSingleFrame();
+});
+
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' && !previewVideo.paused && !recordBtn.disabled) {
+    e.preventDefault();
+    togglePlayPause();
+  } else if (e.code === 'Space' && previewVideo.paused && previewVideo.duration) {
+    e.preventDefault();
+    togglePlayPause();
+  }
+});
+
+// 8. SAFE EXPORT ENGINE
 if (exportBtn) {
   exportBtn.addEventListener('click', async () => {
     if (!previewVideo || !previewVideo.duration) return;
@@ -296,7 +382,6 @@ if (exportBtn) {
     try {
       if (animFrameId) cancelAnimationFrame(animFrameId);
 
-      // Supported Codec Selection
       const codecsToTry = [
         { mime: 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"', ext: 'mp4' },
         { mime: 'video/mp4', ext: 'mp4' },
@@ -375,46 +460,3 @@ if (exportBtn) {
     }
   });
 }
-// Play / Pause Toggle Logic
-function togglePlayPause() {
-  if (!previewVideo.src || previewVideo.readyState < 2) return;
-
-  if (previewVideo.paused) {
-    previewVideo.play();
-    startZoomPlayback();
-    if (playPauseBtn) playPauseBtn.innerText = 'Pause';
-  } else {
-    previewVideo.pause();
-    if (animFrameId) cancelAnimationFrame(animFrameId);
-    drawSingleFrame();
-    if (playPauseBtn) playPauseBtn.innerText = 'Play';
-  }
-}
-
-// Button Click
-if (playPauseBtn) {
-  playPauseBtn.addEventListener('click', togglePlayPause);
-}
-
-// Canvas Click (Screen par kahi bhi click karke play/pause)
-if (canvas) {
-  canvas.addEventListener('click', togglePlayPause);
-}
-
-// Video khatam hone par wapas button 'Play' ho jaye
-previewVideo.addEventListener('ended', () => {
-  if (playPauseBtn) playPauseBtn.innerText = 'Play';
-  if (animFrameId) cancelAnimationFrame(animFrameId);
-  drawSingleFrame();
-});
-
-// Spacebar shortcut se play/pause
-window.addEventListener('keydown', (e) => {
-  if (e.code === 'Space' && !previewVideo.paused && !recordBtn.disabled) {
-    e.preventDefault();
-    togglePlayPause();
-  } else if (e.code === 'Space' && previewVideo.paused && previewVideo.duration) {
-    e.preventDefault();
-    togglePlayPause();
-  }
-});
