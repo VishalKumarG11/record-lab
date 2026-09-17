@@ -22,6 +22,7 @@ if (process.platform === 'win32' && fs.existsSync(powershellExecutable)) {
 module.exports = {
   packagerConfig: {
     asar: true,
+    icon: path.resolve(__dirname, 'src', 'assets', 'record-lab-icon'),
   },
   rebuildConfig: {},
   makers: [
@@ -60,7 +61,7 @@ module.exports = {
           entryPoints: [
             {
               html: './src/index.html',
-              js: './src/renderer.js',
+              js: './src/renderer.tsx',
               name: 'main_window',
               preload: {
                 js: './src/preload.js',
