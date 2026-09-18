@@ -4,7 +4,7 @@ import { LeftDock } from './components/LeftDock';
 import { ThemeInspector } from './components/ThemeInspector';
 import { SettingsInspector } from './components/SettingsInspector';
 import { CenterStage } from './components/CenterStage';
-import { Timeline } from './components/Timeline';
+import { Timeline, type TimelineSegment } from './components/Timeline';
 import type { AspectRatioType, QualityType, MousePoint, ResolutionPreset } from './types';
 
 const RESOLUTION_PRESETS: Record<QualityType, ResolutionPreset> = {
@@ -37,6 +37,8 @@ export const App: React.FC = () => {
   const [totalTime, setTotalTime] = useState('0:00');
   const [currentSeconds, setCurrentSeconds] = useState(0);
   const [durationSeconds, setDurationSeconds] = useState(0);
+  const [segments, setSegments] = useState<TimelineSegment[]>([]);
+  const [selectedSegmentId, setSelectedSegmentId] = useState<number | null>(null);
   const [recordingTime, setRecordingTime] = useState('0:00');
   const [aspectRatio, setAspectRatio] = useState<AspectRatioType>('16:9');
   const [selectedQuality, setSelectedQuality] = useState<QualityType>(() => {
@@ -82,10 +84,73 @@ export const App: React.FC = () => {
   });
   const recordingStartTimeRef = useRef<number>(0);
   const recordedDurationRef = useRef<number>(0);
+  const nextSegmentIdRef = useRef(2);
+  const segmentHistoryRef = useRef<{ past: TimelineSegment[][]; future: TimelineSegment[][] }>({ past: [], future: [] });
 
   const handleDefaultQualityChange = (quality: QualityType) => {
     setSelectedQuality(quality);
     window.localStorage.setItem('record-lab-default-quality', quality);
+  };
+
+  const commitSegments = (nextSegments: TimelineSegment[]) => {
+    segmentHistoryRef.current.past.push(segments);
+    segmentHistoryRef.current.future = [];
+    setSegments(nextSegments);
+  };
+
+  const undoTimelineEdit = () => {
+    const history = segmentHistoryRef.current;
+    const previous = history.past.pop();
+    if (!previous) return;
+    history.future.unshift(segments);
+    setSegments(previous);
+    setSelectedSegmentId(previous[0]?.id ?? null);
+  };
+
+  const redoTimelineEdit = () => {
+    const history = segmentHistoryRef.current;
+    const next = history.future.shift();
+    if (!next) return;
+    history.past.push(segments);
+    setSegments(next);
+    setSelectedSegmentId(next[0]?.id ?? null);
+  };
+
+  const splitAtPlayhead = () => {
+    if (!durationSeconds || currentSeconds <= 0.05 || currentSeconds >= durationSeconds - 0.05) return;
+    const segment = segments.find((item) => currentSeconds > item.start + 0.05 && currentSeconds < item.end - 0.05);
+    if (!segment) return;
+
+    const rightSegment = {
+      id: nextSegmentIdRef.current++,
+      start: currentSeconds,
+      end: segment.end,
+    };
+    const nextSegments = segments.flatMap((item) => (
+      item.id === segment.id
+        ? [{ ...item, end: currentSeconds }, rightSegment]
+        : [item]
+    ));
+    commitSegments(nextSegments);
+    setSelectedSegmentId(rightSegment.id);
+  };
+
+  const deleteSelectedSegment = () => {
+    if (selectedSegmentId === null || segments.length <= 1) return;
+    const selectedIndex = segments.findIndex((segment) => segment.id === selectedSegmentId);
+    const nextSegments = segments.filter((segment) => segment.id !== selectedSegmentId);
+    const fallbackSegment = nextSegments[Math.min(selectedIndex, nextSegments.length - 1)];
+    commitSegments(nextSegments);
+    setSelectedSegmentId(fallbackSegment?.id ?? null);
+    if (fallbackSegment) seekVideo(fallbackSegment.start);
+  };
+
+  const getTimelineTime = (time: number) => {
+    if (segments.length === 0) return time;
+    const activeSegment = segments.find((segment) => time >= segment.start && time <= segment.end);
+    if (activeSegment) return time;
+    const nextSegment = segments.find((segment) => segment.start > time);
+    return nextSegment ? nextSegment.start : segments[segments.length - 1].end;
   };
 
   const handleChooseExportDirectory = async () => {
@@ -233,9 +298,13 @@ export const App: React.FC = () => {
       const video = videoRef.current;
       const canvas = canvasRef.current;
       if (video && canvas && !video.paused && !video.ended) {
-        const currentTimeMs = video.currentTime * 1000;
-        setCurrentSeconds(video.currentTime);
-        setCurrentTime(formatSeconds(video.currentTime));
+        const timelineTime = getTimelineTime(video.currentTime);
+        if (Math.abs(timelineTime - video.currentTime) > 0.02) {
+          video.currentTime = timelineTime;
+        }
+        const currentTimeMs = timelineTime * 1000;
+        setCurrentSeconds(timelineTime);
+        setCurrentTime(formatSeconds(timelineTime));
 
         if (recordingMode === 'animated' && mouseDataRef.current.length > 0) {
           const recent = mouseDataRef.current.filter(
@@ -352,6 +421,10 @@ export const App: React.FC = () => {
     : recordedDurationRef.current;
 
   setDurationSeconds(finalDuration);
+  setSegments([{ id: 1, start: 0, end: finalDuration }]);
+  segmentHistoryRef.current = { past: [], future: [] };
+  setSelectedSegmentId(1);
+  nextSegmentIdRef.current = 2;
   setCurrentSeconds(0);
   setCurrentTime('0:00');
   setTotalTime(formatSeconds(finalDuration));
@@ -408,7 +481,7 @@ export const App: React.FC = () => {
     const video = videoRef.current;
     if (!video || !video.duration) return;
 
-    video.currentTime = Math.max(0, Math.min(time, video.duration));
+    video.currentTime = Math.max(0, Math.min(getTimelineTime(time), video.duration));
     setCurrentSeconds(video.currentTime);
     setCurrentTime(formatSeconds(video.currentTime));
     drawFrame();
@@ -425,8 +498,12 @@ export const App: React.FC = () => {
     exportCancelledRef.current = false;
     const preset = RESOLUTION_PRESETS[selectedQuality];
     const exportDimensions = getExportDimensions(selectedQuality, aspectRatio);
+    const exportSegments = segments.length > 0
+      ? segments
+      : [{ id: 1, start: 0, end: video.duration }];
+    const exportDuration = exportSegments.reduce((total, segment) => total + (segment.end - segment.start), 0);
 
-    video.currentTime = 0;
+    video.currentTime = exportSegments[0].start;
     video.pause();
 
     const exportCanvas = document.createElement('canvas');
@@ -482,10 +559,30 @@ export const App: React.FC = () => {
 
     exportRecorderRef.current = exportRecorder;
     exportRecorder.start();
-    video.ontimeupdate = () => {
-      setExportProgress(Math.min(99, (video.currentTime / video.duration) * 100));
+    let exportSegmentIndex = 0;
+    let exportedDuration = 0;
+    const playNextExportSegment = async () => {
+      const nextSegment = exportSegments[exportSegmentIndex];
+      if (!nextSegment) {
+        if (exportRecorder.state !== 'inactive') exportRecorder.stop();
+        return;
+      }
+      video.currentTime = nextSegment.start;
+      await video.play();
     };
-    await video.play();
+    video.ontimeupdate = () => {
+      const activeSegment = exportSegments[exportSegmentIndex];
+      if (!activeSegment) return;
+      const segmentProgress = Math.max(0, Math.min(activeSegment.end - activeSegment.start, video.currentTime - activeSegment.start));
+      setExportProgress(Math.min(99, ((exportedDuration + segmentProgress) / exportDuration) * 100));
+      if (video.currentTime >= activeSegment.end - 0.03) {
+        video.pause();
+        exportedDuration += activeSegment.end - activeSegment.start;
+        exportSegmentIndex += 1;
+        window.setTimeout(playNextExportSegment, 0);
+      }
+    };
+    await playNextExportSegment();
     startZoomLoop();
 
     video.onended = () => {
@@ -594,6 +691,15 @@ export const App: React.FC = () => {
         onTogglePlay={togglePlayPause}
         onSeek={seekVideo}
         canPlay={canPreview}
+        segments={segments}
+        selectedSegmentId={selectedSegmentId}
+        onSplit={splitAtPlayhead}
+        onDeleteSegment={deleteSelectedSegment}
+        onSelectSegment={setSelectedSegmentId}
+        onUndo={undoTimelineEdit}
+        onRedo={redoTimelineEdit}
+        canUndo={segmentHistoryRef.current.past.length > 0}
+        canRedo={segmentHistoryRef.current.future.length > 0}
       />
     </div>
   );

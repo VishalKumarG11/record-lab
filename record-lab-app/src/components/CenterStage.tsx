@@ -32,7 +32,7 @@ export const CenterStage = forwardRef<HTMLCanvasElement, CenterStageProps>(
             <option value="1:1" className="bg-[#131722]">1:1</option>
             <option value="4:3" className="bg-[#131722]">4:3</option>
           </select>
-          <span className="stage-fit"><Maximize2 size={12} /> Fit Screen</span>
+          <span className="stage-fit"><Maximize2 size={12} /> Aspect Ratio</span>
         </div>
 
         {/* Scaled Responsive Canvas Container */}
