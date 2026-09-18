@@ -1,4 +1,6 @@
 const { app, BrowserWindow, ipcMain, desktopCapturer, session, screen, nativeImage } = require('electron');
+const fs = require('fs');
+const path = require('path');
 const iconPath = require('./assets/record-lab-icon.png');
 const windowIcon = nativeImage.createFromPath(iconPath);
 
@@ -45,6 +47,22 @@ ipcMain.handle('stop-mouse-tracking', () => {
     cursorInterval = null;
   }
   return mouseEvents;
+});
+
+ipcMain.handle('choose-export-directory', async () => {
+  const focusedWindow = BrowserWindow.getFocusedWindow();
+  const result = await require('electron').dialog.showOpenDialog(focusedWindow, {
+    title: 'Choose export folder',
+    properties: ['openDirectory', 'createDirectory'],
+  });
+  return result.canceled ? null : result.filePaths[0] || null;
+});
+
+ipcMain.handle('save-exported-video', async (_event, directory, fileName, data) => {
+  if (!directory || !fileName || !data) throw new Error('Export path or file data is missing');
+  const outputPath = path.join(directory, path.basename(fileName));
+  await fs.promises.writeFile(outputPath, Buffer.from(data));
+  return outputPath;
 });
 
 

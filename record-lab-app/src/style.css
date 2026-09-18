@@ -414,6 +414,130 @@ input:focus-visible + span {
   text-align: center;
 }
 
+.settings-inspector {
+  top: 18px;
+  left: 80px;
+}
+
+.settings-mode-option {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px;
+  color: var(--muted);
+  background: var(--panel-raised);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+}
+
+.settings-mode-option:hover,
+.settings-mode-option.active {
+  color: var(--ink);
+  background: rgba(53, 208, 161, 0.1);
+  border-color: rgba(53, 208, 161, 0.45);
+}
+
+.settings-mode-option strong,
+.settings-mode-option small {
+  display: block;
+}
+
+.settings-mode-option strong {
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.settings-mode-option small {
+  margin-top: 2px;
+  color: var(--faint);
+  font-size: 10px;
+  line-height: 14px;
+}
+
+.settings-mode-toggle {
+  width: 30px;
+  height: 18px;
+  flex: 0 0 auto;
+  padding: 2px;
+  margin-top: 1px;
+  background: #263536;
+  border-radius: 999px;
+  transition: background 160ms ease;
+}
+
+.settings-mode-toggle span {
+  display: block;
+  width: 14px;
+  height: 14px;
+  background: #829491;
+  border-radius: 50%;
+  transition: transform 160ms ease, background 160ms ease;
+}
+
+.settings-mode-option.active .settings-mode-toggle {
+  background: var(--teal-dark);
+}
+
+.settings-mode-option.active .settings-mode-toggle span {
+  background: var(--teal);
+  transform: translateX(12px);
+}
+
+.settings-quality-group {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.settings-quality-select {
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  color: var(--ink);
+  background: var(--panel-raised);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  outline: none;
+}
+
+.settings-quality-select:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 2px rgba(53, 208, 161, 0.12);
+}
+
+.settings-folder-button {
+  width: 100%;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  color: var(--muted);
+  background: var(--panel-raised);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.settings-folder-button:hover {
+  color: var(--ink);
+  border-color: var(--teal);
+}
+
+.settings-folder-button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .timeline {
   height: 158px;
   background: var(--panel);

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { TopNavbar } from './components/TopNavbar';
 import { LeftDock } from './components/LeftDock';
 import { ThemeInspector } from './components/ThemeInspector';
+import { SettingsInspector } from './components/SettingsInspector';
 import { CenterStage } from './components/CenterStage';
 import { Timeline } from './components/Timeline';
 import type { AspectRatioType, QualityType, MousePoint, ResolutionPreset } from './types';
@@ -38,10 +39,20 @@ export const App: React.FC = () => {
   const [durationSeconds, setDurationSeconds] = useState(0);
   const [recordingTime, setRecordingTime] = useState('0:00');
   const [aspectRatio, setAspectRatio] = useState<AspectRatioType>('16:9');
-  const [selectedQuality, setSelectedQuality] = useState<QualityType>('1080');
+  const [selectedQuality, setSelectedQuality] = useState<QualityType>(() => {
+    const savedQuality = window.localStorage.getItem('record-lab-default-quality');
+    return ['240', '360', '480', '720', '1080'].includes(savedQuality || '')
+      ? savedQuality as QualityType
+      : '1080';
+  });
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
   const [isThemeOpen, setIsThemeOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [recordingMode, setRecordingMode] = useState<'normal' | 'animated'>('animated');
+  const [exportDirectory, setExportDirectory] = useState(() => (
+    window.localStorage.getItem('record-lab-export-directory') || ''
+  ));
   const [bgStyle, setBgStyle] = useState<React.CSSProperties>({
     background: '#ffffff',
   });
@@ -70,6 +81,18 @@ export const App: React.FC = () => {
   });
   const recordingStartTimeRef = useRef<number>(0);
   const recordedDurationRef = useRef<number>(0);
+
+  const handleDefaultQualityChange = (quality: QualityType) => {
+    setSelectedQuality(quality);
+    window.localStorage.setItem('record-lab-default-quality', quality);
+  };
+
+  const handleChooseExportDirectory = async () => {
+    const directory = await window.electronAPI.chooseExportDirectory();
+    if (!directory) return;
+    setExportDirectory(directory);
+    window.localStorage.setItem('record-lab-export-directory', directory);
+  };
 
   useEffect(() => {
     if (!isRecording) return;
@@ -185,12 +208,16 @@ export const App: React.FC = () => {
     const offsetY = (canvas.height - sceneHeight) / 2;
 
     drawBackground(ctx, canvas.width, canvas.height);
+    if (recordingMode === 'normal') {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      return;
+    }
     ctx.save();
     ctx.translate(offsetX + sceneWidth / 2, offsetY + sceneHeight / 2);
     ctx.scale(fitScale * zoomState.current.currentScale, fitScale * zoomState.current.currentScale);
     ctx.translate(-zoomState.current.currentFocusX, -zoomState.current.currentFocusY);
     ctx.drawImage(video, 0, 0, baseWidth, baseHeight);
-    if (cursorStateRef.current.visible) {
+    if (recordingMode === 'animated' && cursorStateRef.current.visible) {
       drawCursor(ctx, cursorStateRef.current.x, cursorStateRef.current.y, fitScale * zoomState.current.currentScale);
     }
     ctx.restore();
@@ -209,7 +236,7 @@ export const App: React.FC = () => {
         setCurrentSeconds(video.currentTime);
         setCurrentTime(formatSeconds(video.currentTime));
 
-        if (mouseDataRef.current.length > 0) {
+        if (recordingMode === 'animated' && mouseDataRef.current.length > 0) {
           const recent = mouseDataRef.current.filter(
             p => p.time >= currentTimeMs - 350 && p.time <= currentTimeMs
           );
@@ -242,17 +269,24 @@ export const App: React.FC = () => {
           }
         }
 
-        if (currentTimeMs > zoomState.current.zoomHoldUntil) {
+        if (recordingMode === 'normal') {
+          zoomState.current.currentScale = 1;
+          zoomState.current.stableScale = 1;
+          zoomState.current.currentFocusX = sourceDimensionsRef.current.width / 2;
+          zoomState.current.currentFocusY = sourceDimensionsRef.current.height / 2;
+        } else if (currentTimeMs > zoomState.current.zoomHoldUntil) {
           zoomState.current.stableScale = 1.0;
           zoomState.current.stableTargetX = sourceDimensionsRef.current.width / 2;
           zoomState.current.stableTargetY = sourceDimensionsRef.current.height / 2;
         }
 
-        zoomState.current.currentScale = lerp(zoomState.current.currentScale, zoomState.current.stableScale, 0.055);
-        zoomState.current.currentFocusX = lerp(zoomState.current.currentFocusX, zoomState.current.stableTargetX, 0.075);
-        zoomState.current.currentFocusY = lerp(zoomState.current.currentFocusY, zoomState.current.stableTargetY, 0.075);
-        cursorStateRef.current.x = lerp(cursorStateRef.current.x, cursorStateRef.current.targetX, 0.16);
-        cursorStateRef.current.y = lerp(cursorStateRef.current.y, cursorStateRef.current.targetY, 0.16);
+        if (recordingMode === 'animated') {
+          zoomState.current.currentScale = lerp(zoomState.current.currentScale, zoomState.current.stableScale, 0.055);
+          zoomState.current.currentFocusX = lerp(zoomState.current.currentFocusX, zoomState.current.stableTargetX, 0.075);
+          zoomState.current.currentFocusY = lerp(zoomState.current.currentFocusY, zoomState.current.stableTargetY, 0.075);
+          cursorStateRef.current.x = lerp(cursorStateRef.current.x, cursorStateRef.current.targetX, 0.16);
+          cursorStateRef.current.y = lerp(cursorStateRef.current.y, cursorStateRef.current.targetY, 0.16);
+        }
 
         drawFrame();
         if (exportCanvasRef.current) drawFrame(exportCanvasRef.current);
@@ -410,22 +444,36 @@ export const App: React.FC = () => {
       if (e.data.size > 0) chunks.push(e.data);
     };
 
-    exportRecorder.onstop = () => {
+    exportRecorder.onstop = async () => {
       exportRecorderRef.current = null;
       exportCanvasRef.current = null;
       if (exportCancelledRef.current) return;
-      const finalBlob = new Blob(chunks, { type: 'video/mp4' });
-      const url = URL.createObjectURL(finalBlob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `record-lab-${selectedQuality}p-${Date.now()}.mp4`;
-      a.click();
-
-      setExportProgress(100);
-      setIsExporting(false);
-      video.play();
-      setIsPlaying(true);
-      startZoomLoop();
+      try {
+        const finalBlob = new Blob(chunks, { type: 'video/mp4' });
+        const fileName = `record-lab-${selectedQuality}p-${Date.now()}.mp4`;
+        if (exportDirectory) {
+          await window.electronAPI.saveExportedVideo(
+            exportDirectory,
+            fileName,
+            new Uint8Array(await finalBlob.arrayBuffer()),
+          );
+        } else {
+          const url = URL.createObjectURL(finalBlob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = fileName;
+          a.click();
+          URL.revokeObjectURL(url);
+        }
+        setExportProgress(100);
+      } catch (error) {
+        console.error('Failed to save export', error);
+      } finally {
+        setIsExporting(false);
+        video.play();
+        setIsPlaying(true);
+        startZoomLoop();
+      }
     };
 
     exportRecorderRef.current = exportRecorder;
@@ -481,6 +529,8 @@ export const App: React.FC = () => {
         <LeftDock
           isThemeOpen={isThemeOpen}
           onToggleTheme={() => setIsThemeOpen(prev => !prev)}
+          isSettingsOpen={isSettingsOpen}
+          onToggleSettings={() => setIsSettingsOpen(prev => !prev)}
         />
 
         <ThemeInspector
@@ -501,6 +551,17 @@ export const App: React.FC = () => {
               reader.readAsDataURL(file);
             }
           }}
+        />
+
+        <SettingsInspector
+          isOpen={isSettingsOpen}
+          recordingMode={recordingMode}
+          defaultQuality={selectedQuality === '2160' ? '1080' : selectedQuality}
+          exportDirectory={exportDirectory}
+          onClose={() => setIsSettingsOpen(false)}
+          onRecordingModeChange={setRecordingMode}
+          onDefaultQualityChange={handleDefaultQualityChange}
+          onChooseExportDirectory={handleChooseExportDirectory}
         />
 
         <CenterStage
