@@ -21,6 +21,7 @@ ipcMain.handle('get-sources', async () => {
 let cursorInterval = null;
 let mouseEvents = [];
 let recordingStartTime = 0;
+let exportDirectory = null;
 
 // Cursor recording start karna
 ipcMain.handle('start-mouse-tracking', () => {
@@ -58,11 +59,9 @@ ipcMain.handle('choose-export-directory', async () => {
   return result.canceled ? null : result.filePaths[0] || null;
 });
 
-ipcMain.handle('save-exported-video', async (_event, directory, fileName, data) => {
-  if (!directory || !fileName || !data) throw new Error('Export path or file data is missing');
-  const outputPath = path.join(directory, path.basename(fileName));
-  await fs.promises.writeFile(outputPath, Buffer.from(data));
-  return outputPath;
+ipcMain.handle('set-export-directory', (_event, directory) => {
+  exportDirectory = directory || null;
+  return true;
 });
 
 
@@ -81,8 +80,11 @@ const createWindow = () => {
   // and load the index.html of the app.
   mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
 
-  // Open the DevTools.
-  mainWindow.webContents.openDevTools();
+  mainWindow.webContents.session.on('will-download', (_event, item) => {
+    if (!exportDirectory) return;
+    item.setSavePath(path.join(exportDirectory, path.basename(item.getFilename())));
+  });
+
 };
 
 // This method will be called when Electron has finished

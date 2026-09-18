@@ -454,6 +454,74 @@ input:focus-visible + span {
   left: 80px;
 }
 
+.audio-inspector {
+  top: 70px;
+  left: 80px;
+  width: 330px;
+}
+
+.audio-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.audio-option {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 26px 1fr 18px;
+  align-items: center;
+  gap: 9px;
+  padding: 10px;
+  color: var(--muted);
+  background: var(--panel-raised);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.audio-option:hover,
+.audio-option.active {
+  color: var(--ink);
+  background: rgba(53, 208, 161, 0.1);
+  border-color: rgba(53, 208, 161, 0.45);
+}
+
+.audio-option-icon {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  color: var(--teal);
+  background: rgba(53, 208, 161, 0.1);
+  border-radius: 7px;
+}
+
+.audio-option strong,
+.audio-option small {
+  display: block;
+}
+
+.audio-option strong {
+  font-size: 11px;
+  line-height: 15px;
+}
+
+.audio-option small {
+  margin-top: 2px;
+  color: var(--faint);
+  font-size: 10px;
+  line-height: 13px;
+}
+
+.audio-option-check {
+  color: var(--teal);
+  font-size: 15px;
+  font-weight: 800;
+  text-align: center;
+}
+
 .settings-mode-option {
   width: 100%;
   display: flex;

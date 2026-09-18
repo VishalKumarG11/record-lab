@@ -20,7 +20,7 @@ declare global {
       startMouseTracking: () => Promise<boolean>;
       stopMouseTracking: () => Promise<MousePoint[]>;
       chooseExportDirectory: () => Promise<string | null>;
-      saveExportedVideo: (directory: string, fileName: string, data: Uint8Array) => Promise<string>;
+      setExportDirectory: (directory: string | null) => Promise<boolean>;
     };
   }
 }

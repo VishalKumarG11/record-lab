@@ -3,6 +3,7 @@ import { TopNavbar } from './components/TopNavbar';
 import { LeftDock } from './components/LeftDock';
 import { ThemeInspector } from './components/ThemeInspector';
 import { SettingsInspector } from './components/SettingsInspector';
+import { AudioInspector } from './components/AudioInspector';
 import { CenterStage } from './components/CenterStage';
 import { Timeline, type TimelineSegment } from './components/Timeline';
 import type { AspectRatioType, QualityType, MousePoint, ResolutionPreset } from './types';
@@ -52,6 +53,8 @@ export const App: React.FC = () => {
   const [exportComplete, setExportComplete] = useState(false);
   const [isThemeOpen, setIsThemeOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isAudioOpen, setIsAudioOpen] = useState(false);
+  const [audioMode, setAudioMode] = useState<'system' | 'system-mic' | 'none'>('system-mic');
   const [recordingMode, setRecordingMode] = useState<'normal' | 'animated'>('animated');
   const [exportDirectory, setExportDirectory] = useState(() => (
     window.localStorage.getItem('record-lab-export-directory') || ''
@@ -70,6 +73,9 @@ export const App: React.FC = () => {
   const sourceDimensionsRef = useRef({ width: 1920, height: 1080 });
   const cursorStateRef = useRef({ x: 960, y: 540, targetX: 960, targetY: 540, visible: false });
   const recordedChunksRef = useRef<Blob[]>([]);
+  const microphoneStreamRef = useRef<MediaStream | null>(null);
+  const systemAudioStreamRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
   const mouseDataRef = useRef<MousePoint[]>([]);
   const animFrameRef = useRef<number | null>(null);
 
@@ -158,7 +164,14 @@ export const App: React.FC = () => {
     if (!directory) return;
     setExportDirectory(directory);
     window.localStorage.setItem('record-lab-export-directory', directory);
+    await window.electronAPI.setExportDirectory(directory);
   };
+
+  useEffect(() => {
+    if (exportDirectory) {
+      void window.electronAPI.setExportDirectory(exportDirectory);
+    }
+  }, [exportDirectory]);
 
   useEffect(() => {
     if (!isRecording) return;
@@ -375,8 +388,7 @@ export const App: React.FC = () => {
       recordingStartTimeRef.current = Date.now();
       setCanPreview(false);
       const sources = await window.electronAPI.getSources();
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
+      const desktopVideoConstraints = {
         video: {
           mandatory: {
             chromeMediaSource: 'desktop',
@@ -387,10 +399,41 @@ export const App: React.FC = () => {
             maxHeight: 1080,
           },
         } as any,
+      };
+      const desktopStream = await navigator.mediaDevices.getUserMedia({
+        audio: audioMode !== 'none'
+          ? {
+              mandatory: {
+                chromeMediaSource: 'desktop',
+                chromeMediaSourceId: sources[0].id,
+              },
+            } as any
+          : false,
+        ...desktopVideoConstraints,
       });
 
+      let recordingStream = new MediaStream(desktopStream.getTracks());
+      if (audioMode === 'system-mic') {
+        const microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        const audioContext = new AudioContext();
+        const destination = audioContext.createMediaStreamDestination();
+        const systemAudioTracks = desktopStream.getAudioTracks();
+        if (systemAudioTracks.length > 0) {
+          const systemAudioStream = new MediaStream(systemAudioTracks);
+          audioContext.createMediaStreamSource(systemAudioStream).connect(destination);
+          systemAudioStreamRef.current = systemAudioStream;
+        }
+        audioContext.createMediaStreamSource(microphoneStream).connect(destination);
+        recordingStream = new MediaStream([
+          ...desktopStream.getVideoTracks(),
+          ...destination.stream.getAudioTracks(),
+        ]);
+        microphoneStreamRef.current = microphoneStream;
+        audioContextRef.current = audioContext;
+      }
+
       recordedChunksRef.current = [];
-      const recorder = new MediaRecorder(stream, { mimeType: 'video/mp4' });
+      const recorder = new MediaRecorder(recordingStream, { mimeType: 'video/mp4' });
 
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) recordedChunksRef.current.push(e.data);
@@ -456,6 +499,12 @@ export const App: React.FC = () => {
 
     mediaRecorderRef.current.stop();
     mediaRecorderRef.current.stream.getTracks().forEach(t => t.stop());
+    systemAudioStreamRef.current?.getTracks().forEach((track) => track.stop());
+    systemAudioStreamRef.current = null;
+    microphoneStreamRef.current?.getTracks().forEach((track) => track.stop());
+    microphoneStreamRef.current = null;
+    await audioContextRef.current?.close();
+    audioContextRef.current = null;
     mouseDataRef.current = await window.electronAPI.stopMouseTracking();
   }
   setIsRecording(false);
@@ -530,20 +579,12 @@ export const App: React.FC = () => {
       try {
         const finalBlob = new Blob(chunks, { type: 'video/mp4' });
         const fileName = `record-lab-${selectedQuality}p-${Date.now()}.mp4`;
-        if (exportDirectory) {
-          await window.electronAPI.saveExportedVideo(
-            exportDirectory,
-            fileName,
-            new Uint8Array(await finalBlob.arrayBuffer()),
-          );
-        } else {
-          const url = URL.createObjectURL(finalBlob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = fileName;
-          a.click();
-          URL.revokeObjectURL(url);
-        }
+        const url = URL.createObjectURL(finalBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        a.click();
+        URL.revokeObjectURL(url);
         setExportProgress(100);
         setExportComplete(true);
         window.setTimeout(() => setExportComplete(false), 4000);
@@ -634,11 +675,19 @@ export const App: React.FC = () => {
           onToggleTheme={() => {
             setIsThemeOpen(prev => !prev);
             setIsSettingsOpen(false);
+            setIsAudioOpen(false);
           }}
           isSettingsOpen={isSettingsOpen}
           onToggleSettings={() => {
             setIsSettingsOpen(prev => !prev);
             setIsThemeOpen(false);
+            setIsAudioOpen(false);
+          }}
+          isAudioOpen={isAudioOpen}
+          onToggleAudio={() => {
+            setIsAudioOpen(prev => !prev);
+            setIsThemeOpen(false);
+            setIsSettingsOpen(false);
           }}
         />
 
@@ -671,6 +720,13 @@ export const App: React.FC = () => {
           onRecordingModeChange={setRecordingMode}
           onDefaultQualityChange={handleDefaultQualityChange}
           onChooseExportDirectory={handleChooseExportDirectory}
+        />
+
+        <AudioInspector
+          isOpen={isAudioOpen}
+          audioMode={audioMode}
+          onClose={() => setIsAudioOpen(false)}
+          onAudioModeChange={setAudioMode}
         />
 
         <CenterStage

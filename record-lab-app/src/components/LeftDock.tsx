@@ -1,11 +1,13 @@
 import React from 'react';
-import { Brush, Settings } from 'lucide-react';
+import { Brush, Settings, Volume2 } from 'lucide-react';
 
 interface LeftDockProps {
   isThemeOpen: boolean;
   onToggleTheme: () => void;
   isSettingsOpen: boolean;
   onToggleSettings: () => void;
+  isAudioOpen: boolean;
+  onToggleAudio: () => void;
 }
 
 export const LeftDock: React.FC<LeftDockProps> = ({
@@ -13,6 +15,8 @@ export const LeftDock: React.FC<LeftDockProps> = ({
   onToggleTheme,
   isSettingsOpen,
   onToggleSettings,
+  isAudioOpen,
+  onToggleAudio,
 }) => {
   return (
     <aside className="tool-dock flex flex-col items-center gap-3 z-25 shrink-0">
@@ -22,6 +26,13 @@ export const LeftDock: React.FC<LeftDockProps> = ({
         className={`dock-button ${isThemeOpen ? 'active' : ''}`}
       >
         <Brush size={17} />
+      </button>
+      <button
+        title="Audio"
+        onClick={onToggleAudio}
+        className={`dock-button ${isAudioOpen ? 'active' : ''}`}
+      >
+        <Volume2 size={17} />
       </button>
       <button
         title="Settings"

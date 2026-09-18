@@ -7,5 +7,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   startMouseTracking: () => ipcRenderer.invoke('start-mouse-tracking'),
   stopMouseTracking: () => ipcRenderer.invoke('stop-mouse-tracking'),
   chooseExportDirectory: () => ipcRenderer.invoke('choose-export-directory'),
-  saveExportedVideo: (directory, fileName, data) => ipcRenderer.invoke('save-exported-video', directory, fileName, data)
+  setExportDirectory: (directory) => ipcRenderer.invoke('set-export-directory', directory)
 });
