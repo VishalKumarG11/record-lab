@@ -5,7 +5,7 @@ export interface MousePoint {
 }
 
 export type AspectRatioType = '16:9' | '9:16' | '1:1' | '4:3';
-export type QualityType = '240' | '360' | '720' | '1080' | '2160';
+export type QualityType = '240' | '360' | '480' | '720' | '1080' | '2160';
 
 export interface ResolutionPreset {
   width: number;

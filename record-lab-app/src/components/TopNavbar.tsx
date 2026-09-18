@@ -55,6 +55,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
         >
           <option value="240">240p</option>
           <option value="360">360p</option>
+          <option value="480">480p</option>
           <option value="720">720p HD</option>
           <option value="1080">1080p FHD</option>
           <option value="2160">2160p 4K</option>

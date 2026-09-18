@@ -9,6 +9,7 @@ import type { AspectRatioType, QualityType, MousePoint, ResolutionPreset } from 
 const RESOLUTION_PRESETS: Record<QualityType, ResolutionPreset> = {
   '240':  { width: 426,  height: 240,  bitrate: 800000 },
   '360':  { width: 640,  height: 360,  bitrate: 1500000 },
+  '480':  { width: 854,  height: 480,  bitrate: 2500000 },
   '720':  { width: 1280, height: 720,  bitrate: 6000000 },
   '1080': { width: 1920, height: 1080, bitrate: 14000000 },
   '2160': { width: 3840, height: 2160, bitrate: 45000000 },
@@ -285,14 +286,14 @@ export const App: React.FC = () => {
       });
 
       recordedChunksRef.current = [];
-      const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+      const recorder = new MediaRecorder(stream, { mimeType: 'video/mp4' });
 
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) recordedChunksRef.current.push(e.data);
       };
 
       recorder.onstop = async () => {
-        const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
+        const blob = new Blob(recordedChunksRef.current, { type: 'video/mp4' });
         const video = videoRef.current;
         if (!video) return;
 
@@ -401,7 +402,7 @@ export const App: React.FC = () => {
     const canvasStream = exportCanvas.captureStream(60);
     const chunks: Blob[] = [];
     const exportRecorder = new MediaRecorder(canvasStream, {
-      mimeType: 'video/webm',
+      mimeType: 'video/mp4',
       videoBitsPerSecond: preset.bitrate,
     });
 
@@ -413,11 +414,11 @@ export const App: React.FC = () => {
       exportRecorderRef.current = null;
       exportCanvasRef.current = null;
       if (exportCancelledRef.current) return;
-      const finalBlob = new Blob(chunks, { type: 'video/webm' });
+      const finalBlob = new Blob(chunks, { type: 'video/mp4' });
       const url = URL.createObjectURL(finalBlob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `record-lab-${selectedQuality}p-${Date.now()}.webm`;
+      a.download = `record-lab-${selectedQuality}p-${Date.now()}.mp4`;
       a.click();
 
       setExportProgress(100);
