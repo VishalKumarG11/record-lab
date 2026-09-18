@@ -14,6 +14,19 @@ const RESOLUTION_PRESETS: Record<QualityType, ResolutionPreset> = {
   '2160': { width: 3840, height: 2160, bitrate: 45000000 },
 };
 
+const getExportDimensions = (quality: QualityType, ratio: AspectRatioType) => {
+  const { width, height } = RESOLUTION_PRESETS[quality];
+  const dimensions: Record<AspectRatioType, { width: number; height: number }> = {
+    '16:9': { width, height },
+    '9:16': { width: height, height: width },
+    '1:1': { width: height, height },
+    '4:3': { width: Math.round(height * 4 / 3), height },
+  };
+  return dimensions[ratio];
+};
+
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+
 export const App: React.FC = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [canPreview, setCanPreview] = useState(false);
@@ -36,7 +49,11 @@ export const App: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const exportRecorderRef = useRef<MediaRecorder | null>(null);
+  const exportCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const exportCancelledRef = useRef(false);
+  const backgroundImageRef = useRef<HTMLImageElement | null>(null);
+  const sourceDimensionsRef = useRef({ width: 1920, height: 1080 });
+  const cursorStateRef = useRef({ x: 960, y: 540, targetX: 960, targetY: 540, visible: false });
   const recordedChunksRef = useRef<Blob[]>([]);
   const mouseDataRef = useRef<MousePoint[]>([]);
   const animFrameRef = useRef<number | null>(null);
@@ -88,19 +105,93 @@ export const App: React.FC = () => {
   return `${m}:${s < 10 ? '0' : ''}${s}`;
 };
 
-  const drawFrame = () => {
-    const canvas = canvasRef.current;
+  useEffect(() => {
+    const imageUrl = typeof bgStyle.backgroundImage === 'string'
+      ? bgStyle.backgroundImage.match(/url\(["']?(.*?)["']?\)/)?.[1]
+      : null;
+    if (!imageUrl) {
+      backgroundImageRef.current = null;
+      drawFrame();
+      return;
+    }
+
+    const image = new Image();
+    image.onload = () => {
+      backgroundImageRef.current = image;
+      drawFrame();
+    };
+    image.src = imageUrl;
+  }, [bgStyle]);
+
+  const drawBackground = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
+    const image = backgroundImageRef.current;
+    if (image?.complete && image.naturalWidth > 0) {
+      const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight);
+      const imageWidth = image.naturalWidth * scale;
+      const imageHeight = image.naturalHeight * scale;
+      ctx.drawImage(image, (width - imageWidth) / 2, (height - imageHeight) / 2, imageWidth, imageHeight);
+      return;
+    }
+
+    const background = typeof bgStyle.background === 'string' ? bgStyle.background : '#ffffff';
+    const colors = background.match(/#[0-9a-fA-F]{6}/g);
+    if (background.startsWith('linear-gradient') && colors?.length) {
+      const gradient = ctx.createLinearGradient(0, 0, width, height);
+      colors.forEach((color, index) => gradient.addColorStop(index / Math.max(colors.length - 1, 1), color));
+      ctx.fillStyle = gradient;
+    } else {
+      ctx.fillStyle = background;
+    }
+    ctx.fillRect(0, 0, width, height);
+  };
+
+  const drawCursor = (ctx: CanvasRenderingContext2D, x: number, y: number, scale: number) => {
+    const size = 34 / Math.max(scale, 0.01);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+    ctx.shadowBlur = 8 / Math.max(scale, 0.01);
+    ctx.shadowOffsetY = 3 / Math.max(scale, 0.01);
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = '#111827';
+    ctx.lineWidth = 2.5 / Math.max(scale, 0.01);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(size * 0.72, size * 0.78);
+    ctx.lineTo(size * 0.43, size * 0.73);
+    ctx.lineTo(size * 0.29, size * 1.08);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  };
+
+  const drawFrame = (targetCanvas = canvasRef.current) => {
+    const canvas = targetCanvas;
     const video = videoRef.current;
-    if (!canvas || !video) return;
+    const previewCanvas = canvasRef.current;
+    if (!canvas || !video || !previewCanvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const baseWidth = sourceDimensionsRef.current.width;
+    const baseHeight = sourceDimensionsRef.current.height;
+    const padding = Math.min(canvas.width, canvas.height) * 0.08;
+    const fitScale = Math.min((canvas.width - padding * 2) / baseWidth, (canvas.height - padding * 2) / baseHeight);
+    const sceneWidth = baseWidth * fitScale;
+    const sceneHeight = baseHeight * fitScale;
+    const offsetX = (canvas.width - sceneWidth) / 2;
+    const offsetY = (canvas.height - sceneHeight) / 2;
+
+    drawBackground(ctx, canvas.width, canvas.height);
     ctx.save();
-    ctx.translate(canvas.width / 2, canvas.height / 2);
-    ctx.scale(zoomState.current.currentScale, zoomState.current.currentScale);
+    ctx.translate(offsetX + sceneWidth / 2, offsetY + sceneHeight / 2);
+    ctx.scale(fitScale * zoomState.current.currentScale, fitScale * zoomState.current.currentScale);
     ctx.translate(-zoomState.current.currentFocusX, -zoomState.current.currentFocusY);
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(video, 0, 0, baseWidth, baseHeight);
+    if (cursorStateRef.current.visible) {
+      drawCursor(ctx, cursorStateRef.current.x, cursorStateRef.current.y, fitScale * zoomState.current.currentScale);
+    }
     ctx.restore();
   };
 
@@ -125,23 +216,26 @@ export const App: React.FC = () => {
           if (recent.length >= 2) {
             const first = recent[0];
             const last = recent[recent.length - 1];
+            cursorStateRef.current.visible = true;
+            cursorStateRef.current.targetX = (last.x / window.screen.width) * sourceDimensionsRef.current.width;
+            cursorStateRef.current.targetY = (last.y / window.screen.height) * sourceDimensionsRef.current.height;
             const delta = Math.hypot(last.x - first.x, last.y - first.y);
             const isTaskbar = last.y > (window.screen.height - 70);
 
             if (delta > 260 || isTaskbar) {
               zoomState.current.stableScale = 1.0;
-              zoomState.current.stableTargetX = canvas.width / 2;
-              zoomState.current.stableTargetY = canvas.height / 2;
+              zoomState.current.stableTargetX = sourceDimensionsRef.current.width / 2;
+              zoomState.current.stableTargetY = sourceDimensionsRef.current.height / 2;
               zoomState.current.zoomHoldUntil = 0;
             } else if (delta > 15 && delta < 180) {
               zoomState.current.stableScale = 1.32;
-              const rawX = (last.x / window.screen.width) * canvas.width;
-              const rawY = (last.y / window.screen.height) * canvas.height;
-              const halfW = canvas.width / (2 * zoomState.current.stableScale);
-              const halfH = canvas.height / (2 * zoomState.current.stableScale);
+              const rawX = cursorStateRef.current.targetX;
+              const rawY = cursorStateRef.current.targetY;
+              const halfW = sourceDimensionsRef.current.width / (2 * zoomState.current.stableScale);
+              const halfH = sourceDimensionsRef.current.height / (2 * zoomState.current.stableScale);
 
-              zoomState.current.stableTargetX = Math.max(halfW, Math.min(rawX, canvas.width - halfW));
-              zoomState.current.stableTargetY = Math.max(halfH, Math.min(rawY, canvas.height - halfH));
+              zoomState.current.stableTargetX = clamp(rawX, halfW, sourceDimensionsRef.current.width - halfW);
+              zoomState.current.stableTargetY = clamp(rawY, halfH, sourceDimensionsRef.current.height - halfH);
               zoomState.current.zoomHoldUntil = currentTimeMs + 1600;
             }
           }
@@ -149,15 +243,18 @@ export const App: React.FC = () => {
 
         if (currentTimeMs > zoomState.current.zoomHoldUntil) {
           zoomState.current.stableScale = 1.0;
-          zoomState.current.stableTargetX = canvas.width / 2;
-          zoomState.current.stableTargetY = canvas.height / 2;
+          zoomState.current.stableTargetX = sourceDimensionsRef.current.width / 2;
+          zoomState.current.stableTargetY = sourceDimensionsRef.current.height / 2;
         }
 
-        zoomState.current.currentScale = lerp(zoomState.current.currentScale, zoomState.current.stableScale, 0.03);
-        zoomState.current.currentFocusX = lerp(zoomState.current.currentFocusX, zoomState.current.stableTargetX, 0.03);
-        zoomState.current.currentFocusY = lerp(zoomState.current.currentFocusY, zoomState.current.stableTargetY, 0.03);
+        zoomState.current.currentScale = lerp(zoomState.current.currentScale, zoomState.current.stableScale, 0.055);
+        zoomState.current.currentFocusX = lerp(zoomState.current.currentFocusX, zoomState.current.stableTargetX, 0.075);
+        zoomState.current.currentFocusY = lerp(zoomState.current.currentFocusY, zoomState.current.stableTargetY, 0.075);
+        cursorStateRef.current.x = lerp(cursorStateRef.current.x, cursorStateRef.current.targetX, 0.16);
+        cursorStateRef.current.y = lerp(cursorStateRef.current.y, cursorStateRef.current.targetY, 0.16);
 
         drawFrame();
+        if (exportCanvasRef.current) drawFrame(exportCanvasRef.current);
       }
 
       animFrameRef.current = requestAnimationFrame(render);
@@ -204,10 +301,14 @@ export const App: React.FC = () => {
 
         video.onloadedmetadata = () => {
   if (canvasRef.current) {
-    canvasRef.current.width = video.videoWidth || 1920;
-    canvasRef.current.height = video.videoHeight || 1080;
-    zoomState.current.currentFocusX = canvasRef.current.width / 2;
-    zoomState.current.currentFocusY = canvasRef.current.height / 2;
+      sourceDimensionsRef.current = {
+        width: video.videoWidth || 1920,
+        height: video.videoHeight || 1080,
+      };
+      canvasRef.current.width = sourceDimensionsRef.current.width;
+      canvasRef.current.height = sourceDimensionsRef.current.height;
+      zoomState.current.currentFocusX = sourceDimensionsRef.current.width / 2;
+      zoomState.current.currentFocusY = sourceDimensionsRef.current.height / 2;
   }
 
   const finalDuration = isFinite(video.duration) && !isNaN(video.duration)
@@ -286,11 +387,18 @@ export const App: React.FC = () => {
     setExportProgress(0);
     exportCancelledRef.current = false;
     const preset = RESOLUTION_PRESETS[selectedQuality];
+    const exportDimensions = getExportDimensions(selectedQuality, aspectRatio);
 
     video.currentTime = 0;
     video.pause();
 
-    const canvasStream = canvas.captureStream(60);
+    const exportCanvas = document.createElement('canvas');
+    exportCanvas.width = exportDimensions.width;
+    exportCanvas.height = exportDimensions.height;
+    exportCanvasRef.current = exportCanvas;
+    drawFrame(exportCanvas);
+
+    const canvasStream = exportCanvas.captureStream(60);
     const chunks: Blob[] = [];
     const exportRecorder = new MediaRecorder(canvasStream, {
       mimeType: 'video/webm',
@@ -303,6 +411,7 @@ export const App: React.FC = () => {
 
     exportRecorder.onstop = () => {
       exportRecorderRef.current = null;
+      exportCanvasRef.current = null;
       if (exportCancelledRef.current) return;
       const finalBlob = new Blob(chunks, { type: 'video/webm' });
       const url = URL.createObjectURL(finalBlob);
@@ -344,6 +453,7 @@ export const App: React.FC = () => {
       video.pause();
       video.currentTime = 0;
     }
+    exportCanvasRef.current = null;
     setIsExporting(false);
     setExportProgress(0);
   };

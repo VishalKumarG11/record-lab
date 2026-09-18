@@ -44,13 +44,11 @@ export const CenterStage = forwardRef<HTMLCanvasElement, CenterStageProps>(
             }}
             className="canvas-frame flex items-center justify-center transition-all duration-300 overflow-hidden"
           >
-            <div className="canvas-screen bg-black overflow-hidden shadow-2xl ring-1 ring-white/10 flex items-center justify-center">
-              <canvas
-                ref={ref}
-                onClick={onCanvasClick}
-                className="w-full h-full block object-contain cursor-pointer"
-              />
-            </div>
+            <canvas
+              ref={ref}
+              onClick={onCanvasClick}
+              className="w-full h-auto block object-contain cursor-pointer"
+            />
           </div>
         </div>
       </main>

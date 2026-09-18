@@ -357,22 +357,15 @@ input:focus-visible + span {
   height: min(100%, 438px);
   max-width: calc(100% - 32px);
   max-height: calc(100% - 12px);
-  padding: 20px;
+  /* padding: 20px; */
   /* border: 1px solid rgba(255, 255, 255, 0.18); */
   border-radius: 0;
   background: rgba(255, 255, 255, 0.06);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.34), 0 0 0 5px rgba(255, 255, 255, 0.025);
 }
 
-.canvas-screen {
+.canvas-frame > canvas {
   width: 100%;
-  height: 100%;
-  border-radius: 0;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
-  filter:drop-shadow(rgba(0, 0, 0, 0.7) 0px 0 0px) drop-shadow(rgba(0, 0, 0, 0.5) 0px 4px 16px) drop-shadow(rgba(0, 0, 0, 0.3) 0px 2px 8px);
-}
-
-.canvas-screen canvas {
   object-fit: contain;
 }
 
