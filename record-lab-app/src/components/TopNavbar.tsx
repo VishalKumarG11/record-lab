@@ -1,5 +1,5 @@
 import React from 'react';
-import { Download, Play, Square } from 'lucide-react';
+import { Download, Play, Square,CircleCheck } from 'lucide-react';
 import type { AspectRatioType, QualityType } from '../types';
 import logoUrl from '../assets/record-lab-logo.svg';
 
@@ -8,6 +8,7 @@ interface TopNavbarProps {
   canPreview: boolean;
   canExport: boolean;
   isExporting: boolean;
+  exportComplete: boolean;
   exportProgress: number;
   aspectRatio: AspectRatioType;
   recordingTime: string;
@@ -24,6 +25,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
   canPreview,
   canExport,
   isExporting,
+  exportComplete,
   exportProgress,
   aspectRatio,
   recordingTime,
@@ -89,23 +91,37 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
 
       </div>
 
-      {isExporting && (
+      {(isExporting || exportComplete) && (
         <div className="export-progress-popup" role="status" aria-live="polite">
-          <div className="export-progress-header">
+          {exportComplete ? (
+            <div className="export-success-message">
+              <CircleCheck />
+              <div>
+                <strong>Video exported successfully</strong>
+                <span>Your video is ready to use.</span>
+              </div>
+            </div>
+          ) : (
+            <div className="export-progress-header">
                 <div className="export-progress-title">
                   <strong>Exporting mp4 Video</strong>
                   <span>Preparing your video file</span>
                 </div>
-            <button className="export-cancel-button" onClick={onCancelExport}>Cancel</button>
-          </div>
-          <div className="export-progress-track" aria-label={`${Math.round(exportProgress)}% complete`}>
-            <span style={{ width: `${Math.max(3, exportProgress)}%` }} />
-          </div>
-          <div className="export-progress-percent">{Math.round(exportProgress)}% complete</div>
-          <div className="export-progress-details">
-            <span>Quality <strong>{selectedQuality}p</strong></span>
-            <span>Resolution <strong>{aspectRatio}</strong></span>
-          </div>
+              <button className="export-cancel-button" onClick={onCancelExport}>Cancel</button>
+            </div>
+          )}
+          {isExporting && (
+            <>
+              <div className="export-progress-track" aria-label={`${Math.round(exportProgress)}% complete`}>
+                <span style={{ width: `${Math.max(3, exportProgress)}%` }} />
+              </div>
+              <div className="export-progress-percent">{Math.round(exportProgress)}% complete</div>
+              <div className="export-progress-details">
+                <span>Quality <strong>{selectedQuality}p</strong></span>
+                <span>Resolution <strong>{aspectRatio}</strong></span>
+              </div>
+            </>
+          )}
         </div>
       )}
     </header>

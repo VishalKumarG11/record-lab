@@ -196,6 +196,41 @@ input:focus-visible + span {
   gap: 16px;
 }
 
+.export-success-message {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.export-success-message strong,
+.export-success-message span {
+  display: block;
+}
+
+.export-success-message strong {
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.export-success-message span {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.export-success-icon {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  color: #062018;
+  background: var(--teal);
+  border-radius: 50%;
+  font-size: 15px;
+  font-weight: 800;
+}
+
 .export-progress-title strong,
 .export-progress-title span {
   display: block;

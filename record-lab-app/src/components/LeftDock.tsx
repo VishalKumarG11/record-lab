@@ -1,5 +1,5 @@
 import React from 'react';
-import { Brush, MousePointer2, Settings } from 'lucide-react';
+import { Brush, Settings } from 'lucide-react';
 
 interface LeftDockProps {
   isThemeOpen: boolean;
@@ -22,9 +22,6 @@ export const LeftDock: React.FC<LeftDockProps> = ({
         className={`dock-button ${isThemeOpen ? 'active' : ''}`}
       >
         <Brush size={17} />
-      </button>
-      <button title="Dynamic Cursor" className="dock-button">
-        <MousePointer2 size={17} />
       </button>
       <button
         title="Settings"

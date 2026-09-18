@@ -47,6 +47,7 @@ export const App: React.FC = () => {
   });
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
+  const [exportComplete, setExportComplete] = useState(false);
   const [isThemeOpen, setIsThemeOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [recordingMode, setRecordingMode] = useState<'normal' | 'animated'>('animated');
@@ -420,6 +421,7 @@ export const App: React.FC = () => {
 
     setIsExporting(true);
     setExportProgress(0);
+    setExportComplete(false);
     exportCancelledRef.current = false;
     const preset = RESOLUTION_PRESETS[selectedQuality];
     const exportDimensions = getExportDimensions(selectedQuality, aspectRatio);
@@ -466,6 +468,8 @@ export const App: React.FC = () => {
           URL.revokeObjectURL(url);
         }
         setExportProgress(100);
+        setExportComplete(true);
+        window.setTimeout(() => setExportComplete(false), 4000);
       } catch (error) {
         console.error('Failed to save export', error);
       } finally {
@@ -505,6 +509,7 @@ export const App: React.FC = () => {
     exportCanvasRef.current = null;
     setIsExporting(false);
     setExportProgress(0);
+    setExportComplete(false);
   };
 
   return (
@@ -514,6 +519,7 @@ export const App: React.FC = () => {
         canPreview={canPreview}
         canExport={canPreview}
         isExporting={isExporting}
+        exportComplete={exportComplete}
         exportProgress={exportProgress}
         aspectRatio={aspectRatio}
         recordingTime={recordingTime}
@@ -528,9 +534,15 @@ export const App: React.FC = () => {
       <div className="workspace flex flex-1 relative overflow-hidden">
         <LeftDock
           isThemeOpen={isThemeOpen}
-          onToggleTheme={() => setIsThemeOpen(prev => !prev)}
+          onToggleTheme={() => {
+            setIsThemeOpen(prev => !prev);
+            setIsSettingsOpen(false);
+          }}
           isSettingsOpen={isSettingsOpen}
-          onToggleSettings={() => setIsSettingsOpen(prev => !prev)}
+          onToggleSettings={() => {
+            setIsSettingsOpen(prev => !prev);
+            setIsThemeOpen(false);
+          }}
         />
 
         <ThemeInspector
