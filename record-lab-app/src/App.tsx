@@ -534,6 +534,7 @@ export const App: React.FC = () => {
 };
 
   const togglePlayPause = () => {
+    if (isExporting) return;
     const video = videoRef.current;
     if (!video || !video.duration) return;
 
@@ -550,6 +551,7 @@ export const App: React.FC = () => {
   };
 
   const seekVideo = (time: number) => {
+    if (isExporting) return;
     const video = videoRef.current;
     if (!video || !video.duration) return;
 
@@ -797,7 +799,7 @@ export const App: React.FC = () => {
         durationSeconds={durationSeconds}
         onTogglePlay={togglePlayPause}
         onSeek={seekVideo}
-        canPlay={canPreview}
+        canPlay={canPreview && !isExporting}
         segments={segments}
         selectedSegmentId={selectedSegmentId}
         onSplit={splitAtPlayhead}
