@@ -27,16 +27,6 @@ module.exports = {
   rebuildConfig: {},
   makers: [
     {
-      name: '@electron-forge/maker-squirrel',
-      config: {
-        name: 'record-lab-app',
-      },
-    },
-    {
-      name: '@electron-forge/maker-zip',
-      platforms: ['win32'],
-    },
-    {
       name: '@electron-forge/maker-deb',
       config: {},
     },

@@ -8,7 +8,8 @@
   "scripts": {
     "start": "electron-forge start",
     "package": "electron-forge package",
-    "make": "electron-forge make",
+    "make": "npm run package && npm run make:windows",
+    "make:windows": "set \"PATH=%SystemRoot%\\System32\\WindowsPowerShell\\v1.0;%PATH%\" && electron-builder --win",
     "publish": "electron-forge publish",
     "lint": "echo \"No linting configured\""
   },
@@ -26,8 +27,6 @@
     "@electron-forge/cli": "^7.11.2",
     "@electron-forge/maker-deb": "^7.11.2",
     "@electron-forge/maker-rpm": "^7.11.2",
-    "@electron-forge/maker-squirrel": "^7.11.2",
-    "@electron-forge/maker-zip": "^7.11.2",
     "@electron-forge/plugin-auto-unpack-natives": "^7.11.2",
     "@electron-forge/plugin-fuses": "^7.11.2",
     "@electron-forge/plugin-webpack": "^7.11.2",
@@ -40,6 +39,7 @@
     "babel-loader": "^10.1.1",
     "css-loader": "^6.11.0",
     "electron": "44.3.0",
+    "electron-builder": "^26.15.3",
     "node-loader": "^2.1.0",
     "postcss": "^8.5.28",
     "postcss-loader": "^8.2.1",
@@ -53,5 +53,34 @@
     "lucide-react": "^1.46.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
+  },
+  "build": {
+    "appId": "com.recordlab.app",
+    "productName": "Record-Lab",
+    "directories": {
+      "output": "out"
+    },
+    "files": [
+      ".webpack/x64/**/*",
+      "package.json"
+    ],
+    "extraMetadata": {
+      "main": ".webpack/x64/main/index.js"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "src/assets/record-lab-icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Record-Lab",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false
+    }
   }
 }
