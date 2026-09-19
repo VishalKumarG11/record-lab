@@ -76,6 +76,18 @@ const createWindow = () => {
     },
   });
   mainWindow.setIcon(windowIcon);
+  mainWindow.setMenu(null);
+
+
+  // Start: This code enables the Ctrl+Shift+I shortcut to open DevTools, but it's commented out to prevent users from accessing it.
+  // mainWindow.webContents.on('before-input-event', (event, input) => {
+  //   if (input.type === 'keyDown' && input.control && input.shift && input.key.toLowerCase() === 'i') {
+  //     event.preventDefault();
+  //     mainWindow.webContents.toggleDevTools();
+  //   }
+  // });
+
+//End: This code enables the Ctrl+Shift+I shortcut to open DevTools, but it's commented out to prevent users from accessing it.
 
   // and load the index.html of the app.
   mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
