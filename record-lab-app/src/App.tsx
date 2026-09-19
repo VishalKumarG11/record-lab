@@ -30,6 +30,25 @@ const getExportDimensions = (quality: QualityType, ratio: AspectRatioType) => {
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
+const getRecordingMimeType = (hasAudio: boolean) => {
+  const supportedTypes = hasAudio
+    ? [
+        'video/mp4;codecs="avc1.42E01E,mp4a.40.2"',
+        'video/mp4;codecs="avc1.4D401E,mp4a.40.2"',
+      ]
+    : [
+        'video/mp4;codecs="avc1.42E01E"',
+        'video/mp4;codecs="avc1.4D401E"',
+      ];
+  const mimeType = supportedTypes.find((type) => MediaRecorder.isTypeSupported(type));
+  if (!mimeType) {
+    throw new Error(hasAudio
+      ? 'This system does not support H.264 video with AAC audio.'
+      : 'This system does not support H.264 MP4 recording.');
+  }
+  return mimeType;
+};
+
 export const App: React.FC = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [canPreview, setCanPreview] = useState(false);
@@ -68,6 +87,9 @@ export const App: React.FC = () => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const exportRecorderRef = useRef<MediaRecorder | null>(null);
   const exportCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const exportAudioContextRef = useRef<AudioContext | null>(null);
+  const exportAudioSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const exportAudioStreamRef = useRef<MediaStream | null>(null);
   const exportCancelledRef = useRef(false);
   const backgroundImageRef = useRef<HTMLImageElement | null>(null);
   const sourceDimensionsRef = useRef({ width: 1920, height: 1080 });
@@ -433,14 +455,15 @@ export const App: React.FC = () => {
       }
 
       recordedChunksRef.current = [];
-      const recorder = new MediaRecorder(recordingStream, { mimeType: 'video/mp4' });
+      const recordingMimeType = getRecordingMimeType(audioMode !== 'none');
+      const recorder = new MediaRecorder(recordingStream, { mimeType: recordingMimeType });
 
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) recordedChunksRef.current.push(e.data);
       };
 
       recorder.onstop = async () => {
-        const blob = new Blob(recordedChunksRef.current, { type: 'video/mp4' });
+        const blob = new Blob(recordedChunksRef.current, { type: recordingMimeType });
         const video = videoRef.current;
         if (!video) return;
 
@@ -562,9 +585,30 @@ export const App: React.FC = () => {
     drawFrame(exportCanvas);
 
     const canvasStream = exportCanvas.captureStream(60);
+    const exportStream = new MediaStream(canvasStream.getVideoTracks());
+    const videoWithCaptureStream = video as HTMLVideoElement & {
+      captureStream?: () => MediaStream;
+    };
+    const capturedAudioTracks = videoWithCaptureStream.captureStream?.().getAudioTracks() ?? [];
+
+    if (capturedAudioTracks.length > 0) {
+      capturedAudioTracks.forEach((track) => exportStream.addTrack(track));
+      exportAudioStreamRef.current = new MediaStream(capturedAudioTracks);
+    } else if (audioMode !== 'none' && video.src) {
+      const audioContext = new AudioContext();
+      const destination = audioContext.createMediaStreamDestination();
+      const audioSource = audioContext.createMediaElementSource(video);
+      audioSource.connect(destination);
+      exportAudioContextRef.current = audioContext;
+      exportAudioSourceRef.current = audioSource;
+      exportAudioStreamRef.current = destination.stream;
+      destination.stream.getAudioTracks().forEach((track) => exportStream.addTrack(track));
+    }
+
     const chunks: Blob[] = [];
-    const exportRecorder = new MediaRecorder(canvasStream, {
-      mimeType: 'video/mp4',
+    const exportMimeType = getRecordingMimeType(audioMode !== 'none');
+    const exportRecorder = new MediaRecorder(exportStream, {
+      mimeType: exportMimeType,
       videoBitsPerSecond: preset.bitrate,
     });
 
@@ -575,9 +619,16 @@ export const App: React.FC = () => {
     exportRecorder.onstop = async () => {
       exportRecorderRef.current = null;
       exportCanvasRef.current = null;
+      exportAudioStreamRef.current?.getTracks().forEach((track) => track.stop());
+      exportAudioStreamRef.current = null;
+      exportAudioSourceRef.current?.disconnect();
+      exportAudioSourceRef.current = null;
+      await exportAudioContextRef.current?.close();
+      exportAudioContextRef.current = null;
+      exportStream.getTracks().forEach((track) => track.stop());
       if (exportCancelledRef.current) return;
       try {
-        const finalBlob = new Blob(chunks, { type: 'video/mp4' });
+        const finalBlob = new Blob(chunks, { type: exportMimeType });
         const fileName = `record-lab-${selectedQuality}p-${Date.now()}.mp4`;
         const url = URL.createObjectURL(finalBlob);
         const a = document.createElement('a');
